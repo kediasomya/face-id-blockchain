@@ -4,17 +4,25 @@ A sophisticated pipeline that detects faces from photos, finds real matching soc
 
 ## 🎯 Features
 
-✅ **Face Detection & Encoding** - Detects faces in images and generates 512-dimensional embeddings using OpenCV  
-✅ **Reverse Image Search** - Finds genuine matching social media posts using Bing Image Search API  
-✅ **Blockchain Verification** - Records face verification data on Ethereum Goerli testnet as tamper-evident records  
+✅ **Face Detection & Encoding** - Detects face-like regions in images and generates a 512-dimensional feature vector (OpenCV) hashed with SHA256  
+✅ **Blockchain Verification** - Records face verification data on the **Ethereum Sepolia testnet** as tamper-evident, on-chain records (fully working)  
 ✅ **End-to-End Pipeline** - Orchestrated CLI tool for complete face-to-blockchain verification  
-✅ **Demo Mode** - Works without API keys for testing and demonstration  
+✅ **Image Search (demo)** - Reverse-image-search step runs with mock data; see [Known Limitations](#-known-limitations)  
+✅ **Demo Mode** - Face detection + image search run without any API keys  
+
+### ✅ Live deployment (Sepolia testnet)
+
+| | |
+|---|---|
+| **Contract** | [`0xA7FeacB5288f2f34979e5DD7A236425b0Bc74c9a`](https://sepolia.etherscan.io/address/0xA7FeacB5288f2f34979e5DD7A236425b0Bc74c9a) |
+| **Network** | Ethereum Sepolia (Chain ID `11155111`) |
+| **Example TX** | [`0x16570d…4fb06`](https://sepolia.etherscan.io/tx/0x16570d5047025e42b52f62ea11c93de7cefb777c0ff1e0fd02e85db2dbe4fb06) |
 
 ## 🔧 Tech Stack
 
 - **Face Processing:** OpenCV (edge detection, multi-scale histogram encoding)
-- **Image Search:** Bing Image Search API (or mock data in demo mode)
-- **Blockchain:** Ethereum (Goerli testnet), Web3.py, Solidity smart contracts
+- **Image Search:** Pexels API integration (runs with mock data in demo mode)
+- **Blockchain:** Ethereum (Sepolia testnet), Web3.py, Solidity smart contract, py-solc-x
 - **Language:** Python 3.9+
 - **CLI:** Click framework
 - **Testing:** pytest
@@ -22,9 +30,9 @@ A sophisticated pipeline that detects faces from photos, finds real matching soc
 ## 📋 Requirements
 
 - Python 3.9 or higher
-- Bing Image Search API key (free tier: 1000 queries/month) - *optional for demo mode*
-- Ethereum account with Goerli testnet ETH (free via faucet) - *optional for demo mode*
-- Infura RPC endpoint (free) - *optional for demo mode*
+- Ethereum account with Sepolia testnet ETH (free via faucet) - *required for real blockchain recording*
+- Infura RPC endpoint for Sepolia (free) - *required for real blockchain recording*
+- Image search API key (Pexels, free) - *optional; image search runs mocked in demo mode*
 
 ## 🚀 Quick Start
 
@@ -67,29 +75,35 @@ cp .env.example .env
 Edit `.env` with your credentials:
 
 ```env
-# Bing Image Search - Get from https://www.microsoft.com/en-us/bing/apis/bing-image-search-api
-BING_SEARCH_KEY=your_actual_api_key_here
+# Ethereum - Get a free Infura key from https://infura.io and use the Sepolia endpoint
+ETHEREUM_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
 
-# Ethereum - Get Infura key from https://infura.io (free)
-ETHEREUM_RPC_URL=https://goerli.infura.io/v3/YOUR_INFURA_KEY
-
-# Get testnet ETH from https://goerlifaucet.com (free)
+# Use a THROWAWAY test wallet. Get free Sepolia ETH from https://sepoliafaucet.com
 ETHEREUM_PRIVATE_KEY=0x...your_private_key...
+ETHEREUM_NETWORK=sepolia
 
-# Smart contract address (after deployment)
+# Smart contract address (auto-filled by contract/deploy.py)
 CONTRACT_ADDRESS=0x...deployed_contract...
+
+# Optional: image search (runs mocked if left as placeholder)
+PEXELS_API_KEY=your_pexels_api_key_here
 ```
 
 ### 4. Deploy Smart Contract (Optional)
 
 ```bash
-# Set up .env with Ethereum credentials first
+# Set up .env with Sepolia RPC + private key (and fund the wallet) first
 python contract/deploy.py
 
 # Output:
 # ✓ Contract deployed at: 0x...
 # ✓ CONTRACT_ADDRESS updated in .env
+# ✓ ABI saved to contract/FaceRegistry_ABI.json
+# ✓ View on explorer: https://sepolia.etherscan.io/address/0x...
 ```
+
+Once deployed, running the pipeline writes a **real transaction** to your
+contract on Sepolia — even in `--demo` mode (only the image-search step is mocked).
 
 ### 5. Run Full Pipeline
 
@@ -117,7 +131,7 @@ Input Image
 ┌─────────────────────────┐
 │ 2. Image Search         │
 │ ─────────────────────── │
-│ • Search Bing API       │
+│ • Search image API      │
 │ • Filter social media   │
 │ • Extract metadata      │
 │ • Similarity scoring    │
@@ -180,17 +194,16 @@ The pipeline saves results to JSON:
 ### Environment Variables (`.env`)
 
 ```env
-# Image Search
-IMAGE_SEARCH_API=bing
-BING_SEARCH_KEY=your_key_here
+# Image Search (optional — mocked in demo mode)
+PEXELS_API_KEY=your_key_here
 IMAGE_SEARCH_TIMEOUT=30
 MAX_SEARCH_RESULTS=10
 SIMILARITY_THRESHOLD=0.85
 
 # Blockchain
-ETHEREUM_RPC_URL=https://goerli.infura.io/v3/your_key
+ETHEREUM_RPC_URL=https://sepolia.infura.io/v3/your_key
 ETHEREUM_PRIVATE_KEY=0x...
-ETHEREUM_NETWORK=goerli
+ETHEREUM_NETWORK=sepolia
 CONTRACT_ADDRESS=0x...
 
 # Face Detection
@@ -226,7 +239,7 @@ face-id-blockchain/
 │
 ├── src/
 │   ├── face_detector.py    # OpenCV face detection & encoding
-│   ├── image_search.py     # Bing Image Search integration
+│   ├── image_search.py     # Pexels image search integration (demo/mock in pipeline)
 │   ├── blockchain.py       # Ethereum Web3 integration
 │   └── utils.py            # Utility functions
 │
@@ -258,17 +271,17 @@ face-id-blockchain/
 - Creates SHA256 hash for blockchain storage
 
 ### Step 2: Reverse Image Search
-- Uses Bing Image Search API to find matching images
-- Filters results by social media domains (Twitter, Instagram, etc.)
+- Uses the Pexels API to find candidate images (keyword-based, not true reverse search)
 - Extracts metadata (URL, source, confidence)
-- Returns best matching social post
+- Returns best matching result (mocked in the pipeline's demo mode)
 
 ### Step 3: Blockchain Recording
-- Connects to Ethereum Goerli testnet via Infura
-- Calls FaceRegistry smart contract
-- Records: face hash, post URL, metadata
-- Returns transaction hash and record ID
-- Event emitted for verification logging
+- Connects to Ethereum Sepolia testnet via Infura
+- Calls the deployed FaceRegistry smart contract (`recordFaceVerification`)
+- Records: face hash (bytes32), image URL, post URL, metadata
+- Signs and sends a real transaction, waits for confirmation
+- Returns transaction hash + record ID (parsed from the emitted event)
+- Record is retrievable on-chain via `getRecord(recordId)`
 
 ## 📌 Known Limitations
 
@@ -278,16 +291,17 @@ face-id-blockchain/
 - **Note:** Uses edge detection; works on photos, drawings, and artistic renderings
 
 ### Image Search
-- **API limit:** 1000 queries/month (free tier)
-- **Coverage:** Only indexed images are found
-- **Speed:** ~1-3 seconds per search
-- **Accuracy:** Depends on image indexing by search engines
+- **⚠️ Not true reverse-image search.** The current `image_search.py` does a Pexels
+  *keyword* search (using the filename) and returns stock photos — it does **not**
+  identify a person's real social-media post. In the pipeline it runs in demo/mock mode.
+- Making this genuine would require a reverse-image/face-search API (e.g. TinEye,
+  Google Vision) and a rewrite of the search module. This is the main remaining work item.
 
-### Blockchain
-- **Network:** Currently Goerli testnet (not production)
-- **Cost:** ~0.001 ETH per transaction (free testnet ETH available)
-- **Speed:** ~12-15 seconds for confirmation
-- **Permanence:** Records are immutable once confirmed
+### Blockchain (working)
+- **Network:** Ethereum Sepolia testnet (Goerli is deprecated/dead)
+- **Cost:** a fraction of a testnet ETH per transaction (free from a faucet)
+- **Speed:** ~15-120 seconds for confirmation
+- **Permanence:** Records are immutable once confirmed and readable back on-chain
 
 ### General
 - Requires internet connection for image search and blockchain
@@ -312,17 +326,17 @@ face-id-blockchain/
 - Ensure testnet ETH balance is sufficient
 - Use demo mode first: `--demo`
 
-### "Bing Search API error"
-- Verify API key in `.env`
-- Check API quota hasn't been exceeded
+### "Image search API error"
+- Verify the Pexels API key in `.env`
+- Check the API quota hasn't been exceeded
 - Use demo mode for testing: `--demo`
 
 ## 🔗 Useful Links
 
-- **Bing Search API:** https://www.microsoft.com/en-us/bing/apis/bing-image-search-api
+- **Pexels API:** https://www.pexels.com/api/ (free image search key)
 - **Infura:** https://infura.io (free RPC endpoints)
-- **Goerli Faucet:** https://goerlifaucet.com (free testnet ETH)
-- **Ethereum Goerli Explorer:** https://goerli.etherscan.io
+- **Sepolia Faucet:** https://sepoliafaucet.com (free testnet ETH)
+- **Ethereum Sepolia Explorer:** https://sepolia.etherscan.io
 - **Web3.py Documentation:** https://web3py.readthedocs.io
 
 ## 📖 API Reference
@@ -355,7 +369,7 @@ detector = FaceDetector()
 result = detector.process_image("image.jpg")
 
 # Image search
-searcher = ReverseImageSearcher("your_bing_key")
+searcher = ReverseImageSearcher("your_pexels_key")
 post = searcher.find_matching_post("image.jpg")
 
 # Blockchain
@@ -381,6 +395,6 @@ Built for Hackathon Challenge: Face ID + Blockchain Verification
 
 ---
 
-**Status:** Production Ready | Demo Mode Enabled | 85% Complete
+**Status:** Blockchain recording live on Sepolia ✅ | Face detection working ✅ | Image search is demo/mock ⚠️
 
 **Questions?** Check troubleshooting section above or test with `--demo` mode first!
