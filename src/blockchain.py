@@ -101,6 +101,30 @@ class BlockchainVerifier:
             raw = raw.rjust(32, b"\x00")
         return raw[:32]
 
+    def _fee_params(self) -> Dict:
+        """
+        Build gas-fee params that actually get mined on Sepolia.
+
+        Uses EIP-1559 (maxFeePerGas / maxPriorityFeePerGas) with a healthy
+        priority tip so validators include the tx quickly. Falls back to a
+        bumped legacy gasPrice if the chain doesn't report a base fee.
+        """
+        try:
+            base_fee = self.w3.eth.get_block("latest").get("baseFeePerGas")
+        except Exception:
+            base_fee = None
+
+        if base_fee:
+            # 2 gwei tip, and cap = 2x base + tip to absorb base-fee swings.
+            priority = self.w3.to_wei(2, "gwei")
+            max_fee = base_fee * 2 + priority
+            return {
+                "maxFeePerGas": max_fee,
+                "maxPriorityFeePerGas": priority,
+            }
+        # Legacy fallback: bump gas price 50% so it isn't stuck at the floor.
+        return {"gasPrice": int(self.w3.eth.gas_price * 1.5) + self.w3.to_wei(1, "gwei")}
+
     def _explorer_url(self, tx_hash: str) -> str:
         """Best-effort block-explorer link for the current network."""
         explorers = {
@@ -143,7 +167,8 @@ class BlockchainVerifier:
             face_hash_b32 = self._face_hash_to_bytes32(face_hash)
 
             logger.info("Building recordFaceVerification transaction...")
-            nonce = self.w3.eth.get_transaction_count(self.account.address)
+            # Use 'latest' nonce so a stuck/pending tx at this nonce gets replaced.
+            nonce = self.w3.eth.get_transaction_count(self.account.address, "latest")
 
             fn = self.contract.functions.recordFaceVerification(
                 face_hash_b32,
@@ -152,13 +177,15 @@ class BlockchainVerifier:
                 metadata_str,
             )
 
-            tx = fn.build_transaction({
+            tx_params = {
                 "from": self.account.address,
                 "nonce": nonce,
                 "gas": 500000,
-                "gasPrice": self.w3.eth.gas_price,
                 "chainId": self.chain_id,
-            })
+            }
+            tx_params.update(self._fee_params())
+
+            tx = fn.build_transaction(tx_params)
 
             signed = self.account.sign_transaction(tx)
             # web3.py v6 renamed rawTransaction -> raw_transaction; support both
