@@ -1,15 +1,17 @@
 """
 Smart contract deployment script for FaceRegistry contract.
-Deploys to Ethereum Goerli testnet via Infura.
+Deploys to Ethereum Sepolia testnet via Infura.
 """
 
 import json
 import logging
 from pathlib import Path
 from web3 import Web3
-from solcx import compile_source
+from solcx import compile_source, install_solc
 import os
 from dotenv import load_dotenv
+
+SOLC_VERSION = "0.8.0"
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +27,12 @@ def load_contract_source(contract_path: str) -> str:
 def compile_contract(source_code: str) -> dict:
     """Compile Solidity contract using solc."""
     try:
+        # Ensure the solc compiler is available (installs on first run)
+        install_solc(SOLC_VERSION)
         compiled = compile_source(
             source_code,
             output_values=['abi', 'bin'],
-            solc_version='0.8.0'
+            solc_version=SOLC_VERSION
         )
         logger.info("Contract compiled successfully")
         return compiled
@@ -62,8 +66,10 @@ def deploy_contract(w3: Web3, contract_info: dict, account) -> str:
         signed_tx = account.sign_transaction(tx)
         
         # Send transaction
+        # web3.py v6 renamed rawTransaction -> raw_transaction; support both
+        raw_tx = getattr(signed_tx, "raw_transaction", None) or signed_tx.rawTransaction
         logger.info("Sending deployment transaction...")
-        tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = w3.eth.send_raw_transaction(raw_tx)
         logger.info(f"Transaction hash: {tx_hash.hex()}")
         
         # Wait for receipt
@@ -145,7 +151,7 @@ def main():
     logger.info(f"Balance: {balance} ETH")
     
     if balance < 0.01:
-        logger.warning("Low balance! Get testnet ETH from faucet: https://goerlifaucet.com")
+        logger.warning("Low balance! Get Sepolia testnet ETH from a faucet: https://sepoliafaucet.com")
     
     # Load and compile contract
     logger.info("Loading contract source...")
@@ -169,7 +175,8 @@ def main():
     logger.info("\n" + "="*60)
     logger.info("Deployment successful!")
     logger.info(f"Contract Address: {contract_address}")
-    logger.info(f"Network: Goerli Testnet (Chain ID: {w3.eth.chain_id})")
+    logger.info(f"Network: Sepolia Testnet (Chain ID: {w3.eth.chain_id})")
+    logger.info(f"View on explorer: https://sepolia.etherscan.io/address/{contract_address}")
     logger.info("="*60)
     
     return True

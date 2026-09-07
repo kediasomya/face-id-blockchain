@@ -118,8 +118,25 @@ class FaceIDPipeline:
         
         # Step 4: Blockchain Recording
         logger.info("\n[STEP 3] Recording verification on blockchain...")
-        
-        if demo:
+
+        # Prefer a real on-chain record whenever a deployed contract is loaded —
+        # even in demo mode, so the demo can still write to Sepolia if configured.
+        if self.blockchain and self.blockchain.contract:
+            logger.info("  Recording on-chain via FaceRegistry contract...")
+            blockchain_result = self.blockchain.record_face_verification(
+                face_hash=face_result["encoding_hash"],
+                image_url=image_path,
+                social_post_url=search_result["host_url"],
+                metadata={
+                    "num_faces": face_result["num_faces"],
+                    "is_social_media": search_result.get("is_social_media"),
+                }
+            )
+            if blockchain_result.get("transaction_hash"):
+                logger.info(f"  TX: {blockchain_result['transaction_hash']}")
+                if blockchain_result.get("explorer_url"):
+                    logger.info(f"  Explorer: {blockchain_result['explorer_url']}")
+        elif demo:
             logger.info("  [DEMO MODE] Using mock blockchain record")
             blockchain_result = {
                 "status": "success",
@@ -127,28 +144,17 @@ class FaceIDPipeline:
                 "record_id": "0x" + "b" * 64,
                 "face_hash": face_result["encoding_hash"],
                 "timestamp": 1725674006,
-                "network": "goerli_demo"
+                "network": "sepolia_demo"
             }
             logger.info(f"  [DEMO] TX: {blockchain_result['transaction_hash'][:16]}...")
         else:
-            if self.blockchain:
-                blockchain_result = self.blockchain.record_face_verification(
-                    face_hash=face_result["encoding_hash"],
-                    image_url=image_path,
-                    social_post_url=search_result["host_url"],
-                    metadata={
-                        "num_faces": face_result["num_faces"],
-                        "is_social_media": search_result.get("is_social_media"),
-                    }
-                )
-                result["steps"]["blockchain"] = blockchain_result
-            else:
-                logger.warning("Blockchain not available - recording skipped")
-                blockchain_result = {
-                    "status": "skipped",
-                    "reason": "Blockchain credentials not configured"
-                }
-        
+            logger.warning("Blockchain not available - recording skipped")
+            blockchain_result = {
+                "status": "skipped",
+                "reason": "Blockchain not configured (set ETHEREUM_RPC_URL, "
+                          "ETHEREUM_PRIVATE_KEY, CONTRACT_ADDRESS in .env)"
+            }
+
         result["steps"]["blockchain"] = blockchain_result
         result["success"] = True
         
@@ -212,8 +218,17 @@ def main(image: str, output: str, demo: bool, debug: bool):
         click.echo(f"Social post match: {result['steps']['image_search'].get('host_url', 'N/A')}")
         
         if "blockchain" in result["steps"]:
-            tx = result["steps"]["blockchain"].get("transaction_hash", "N/A")
-            click.echo(f"Blockchain TX: {tx[:20]}...")
+            bc = result["steps"]["blockchain"]
+            tx = bc.get("transaction_hash")
+            if tx:
+                click.echo(f"Blockchain TX: {tx}")
+                if bc.get("record_id"):
+                    click.echo(f"Record ID: {bc['record_id']}")
+                if bc.get("explorer_url"):
+                    click.echo(f"Explorer: {bc['explorer_url']}")
+            else:
+                click.echo(f"Blockchain: {bc.get('status', 'N/A')} "
+                           f"({bc.get('reason', bc.get('error', ''))})")
         
         if result.get("demo_mode"):
             click.secho("\n[DEMO MODE] Using mock data for demonstration", fg="cyan")
