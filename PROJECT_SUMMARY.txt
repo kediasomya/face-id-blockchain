@@ -1,252 +1,50 @@
-╔════════════════════════════════════════════════════════════════════════════╗
-║                  FACE ID + BLOCKCHAIN PIPELINE - COMPLETE                 ║
-║                          HACKATHON SUBMISSION READY                        ║
-╚════════════════════════════════════════════════════════════════════════════╝
+FACE ID + BLOCKCHAIN VERIFICATION PIPELINE
+==========================================
+HH Goa 2026 - Task 3: Face Identification & Blockchain Verification
 
-PROJECT: Face ID + Blockchain Verification Pipeline
-STATUS: 95% COMPLETE - READY FOR SUBMISSION
-DEADLINE: Sep 7, 2026 11:59 PM IST
-TIME REMAINING: ~23 hours
+WHAT IT DOES
+------------
+End-to-end pipeline:
+  face scan -> genuine reverse-image search -> blockchain record -> re-verify
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Face detection & encoding (OpenCV) -> SHA256 face hash
+  2. GENUINE reverse image search: input image is uploaded to a temporary
+     public host (catbox.moe / 0x0.st), then queried against Google via
+     SerpApi (Google Lens). Returns a real matching web/social post.
+     Not hardcoded - it is a live search.
+  3. Blockchain record: the face hash + matched post URL + metadata are
+     written to the FaceRegistry smart contract on the Ethereum Sepolia
+     testnet as a tamper-evident record (real transaction).
+  4. Re-verification: verify.py reads the record back from the chain and
+     re-hashes any image to confirm a MATCH or detect TAMPERING.
 
-COMPLETED DELIVERABLES (9/10):
+LIVE DEPLOYMENT (Sepolia testnet)
+---------------------------------
+  Contract : 0xA7FeacB5288f2f34979e5DD7A236425b0Bc74c9a
+  Network  : Ethereum Sepolia (Chain ID 11155111)
+  Explorer : https://sepolia.etherscan.io/address/0xA7FeacB5288f2f34979e5DD7A236425b0Bc74c9a
 
-1. ✅ Face Detection Module
-   - OpenCV-based edge detection
-   - 512D face encoding generation
-   - SHA256 hashing for blockchain
-   - Tested and working on sample images
+HOW TO RUN
+----------
+  pip install -r requirements.txt
+  cp .env.example .env        # add SERPAPI_KEY, ETHEREUM_RPC_URL, ETHEREUM_PRIVATE_KEY
+  python contract/deploy.py    # deploy contract (fills CONTRACT_ADDRESS)
 
-2. ✅ Reverse Image Search
-   - Bing Image Search API integration
-   - Social media domain filtering
-   - Demo mode with mock data
-   - Production-ready code
+  python pipeline.py --image <face.jpg>            # full pipeline (+ QR certificate)
+  python verify.py  --record-id 0x<id>             # read record back from chain
+  python verify.py  --image <face.jpg>             # re-hash -> MATCH / TAMPER DETECTED
 
-3. ✅ Blockchain Integration
-   - Ethereum Goerli smart contract (FaceRegistry.sol)
-   - Web3.py integration
-   - Contract deployment script
-   - Mock blockchain recording
+BLOCKCHAIN USED
+---------------
+  Ethereum Sepolia public testnet, via Infura RPC, Solidity contract
+  (FaceRegistry.sol) deployed with web3.py + py-solc-x.
 
-4. ✅ Pipeline Orchestration
-   - Full 3-stage pipeline (Detection → Search → Blockchain)
-   - Click CLI framework
-   - Demo mode (works without APIs)
-   - Debug logging support
-   - JSON output format
+KNOWN LIMITATIONS
+-----------------
+  - Face detection is OpenCV edge/contour based, not true face recognition.
+  - Reverse-search coverage depends on Google's index: widely-online faces
+    return rich social matches; a brand-new private photo may return few/none.
+  - Temp image hosts (catbox.moe / 0x0.st) are public - don't use sensitive images.
+  - Sepolia is a testnet (not production); confirmation ~15-120s.
 
-5. ✅ Comprehensive Documentation
-   - README.md (400+ lines)
-   - SETUP_GUIDE.md (400+ lines)
-   - RECORDING_GUIDE.md (350+ lines)
-   - SUBMISSION_CHECKLIST.md (350+ lines)
-
-6. ✅ Interactive Demo Script
-   - demo.py with 7-stage walkthrough
-   - Professional formatting
-   - Ready for screen recording
-   - Terminal-friendly output
-
-7. ✅ Complete Test Suite
-   - Unit tests for all modules
-   - Integration tests
-   - Sample test image included
-   - All tests passing
-
-8. ✅ Git Repository
-   - 5 clean commits with descriptive messages
-   - Proper .gitignore configuration
-   - Clean project structure
-   - Ready for GitHub publication
-
-9. ✅ Environment Configuration
-   - requirements.txt with 50+ packages
-   - .env.example template
-   - Virtual environment setup
-   - Python 3.9+ compatible
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-REMAINING (1/10):
-
-10. ⏳ Screen Recording
-    - Ready to record (15-20 minutes)
-    - Demo script prepared
-    - Terminal setup optimized
-    - Recording guide provided
-    - Export specifications detailed
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-REQUIREMENTS VERIFICATION:
-
-Hackathon Requirements:
-✓ Detect and encode face from input image → WORKING
-✓ Find real matching social media post → READY (Bing API + demo mode)
-✓ Upload match data to blockchain → READY (Solidity + Web3)
-✓ Source on GitHub with documentation → PREPARED
-✓ Document how to run it → COMPREHENSIVE (4 guides)
-✓ Specify which blockchain → Ethereum Goerli (documented)
-✓ Document known limitations → INCLUDED (in README)
-⏳ Unedited screen recording → READY TO RECORD
-
-COMPLETION: 95% ✅
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PROJECT STATISTICS:
-
-Code:
-  - Total Lines of Code: 1,500+
-  - Python Modules: 7
-  - Smart Contract: 1 (Solidity)
-  - Test Modules: 3
-
-Documentation:
-  - Total Lines: 1,600+
-  - Guides: 4
-  - Comprehensive coverage of all features
-
-Git:
-  - Commits: 5 (all with descriptive messages)
-  - Files Tracked: 20+
-  - Repository Size: ~500KB
-
-Testing:
-  - Unit Tests: 3 modules
-  - Integration Tests: Passing
-  - Manual Tests: All working
-  - Coverage: Core functionality tested
-
-Features:
-  - Face Detection: ✓ Working (OpenCV)
-  - Image Search: ✓ Ready (Bing API + mock)
-  - Blockchain: ✓ Ready (Solidity + Web3)
-  - CLI: ✓ Working (Click framework)
-  - Demo: ✓ Ready (7-stage walkthrough)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-NEXT STEPS (15-45 minutes):
-
-1. Record Screen Demo (15-20 min)
-   $ cd /path/to/face-id-blockchain
-   $ source venv/bin/activate
-   $ python demo.py
-   (Screen record this - shows all 7 stages)
-
-2. Upload to GitHub (10 min)
-   $ git add -A
-   $ git commit -m "Final: Add screen recording"
-   $ git push
-
-3. Submit (5 min)
-   - Get GitHub URL
-   - Get video link
-   - Submit to hackathon
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-QUALITY RATINGS:
-
-Code Quality:      ⭐⭐⭐⭐⭐ Clean, modular, well-tested
-Documentation:     ⭐⭐⭐⭐⭐ Comprehensive with examples
-Functionality:     ⭐⭐⭐⭐⭐ All features working
-Completeness:      ⭐⭐⭐⭐⭐ Ready for submission
-User Experience:   ⭐⭐⭐⭐⭐ Easy to setup and use
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-WHAT MAKES THIS PROJECT SPECIAL:
-
-✨ Works WITHOUT any API keys (demo mode)
-✨ Production-ready code with error handling
-✨ Comprehensive documentation for users
-✨ Multiple deployment options (demo/real)
-✨ Clean, modular architecture
-✨ Full test suite included
-✨ Smart contract ready for blockchain
-✨ Professional CLI interface
-✨ Extensible for future improvements
-✨ Security best practices followed
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-KEY FILES:
-
-Start Here:
-  • README.md - Quick start and overview
-  • RECORDING_GUIDE.md - How to record demo
-  • demo.py - Run this for best presentation
-
-Core Implementation:
-  • pipeline.py - Main CLI entry point
-  • src/face_detector.py - Face detection logic
-  • src/image_search.py - Image search integration
-  • src/blockchain.py - Ethereum integration
-  • contract/FaceRegistry.sol - Smart contract
-
-Configuration:
-  • requirements.txt - Python dependencies
-  • .env.example - Configuration template
-  • .gitignore - Git ignore rules
-
-Testing & Demo:
-  • tests/ - Unit tests
-  • sample_images/test_face.jpg - Test image
-  • demo.py - Interactive demonstration
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TIME TRACKING:
-
-Development: ~2.5 hours (complete implementation)
-Remaining: ~20-45 minutes (recording + submission)
-Available: ~23 hours (buffer)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SUBMISSION CHECKLIST:
-
-Ready for Submission:
-✓ Core functionality implemented and tested
-✓ All modules created and documented
-✓ Smart contract ready
-✓ Documentation complete (4 guides)
-✓ GitHub repository prepared (5 commits)
-✓ Demo script created and tested
-✓ Test suite passing
-✓ Known limitations documented
-⏳ Screen recording (ready to record)
-⏳ Final GitHub push (after recording)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SUCCESS INDICATORS:
-
-✓ Face detection working on sample images
-✓ Pipeline orchestration complete
-✓ Demo script runs perfectly
-✓ All tests passing
-✓ Documentation comprehensive
-✓ Code quality high
-✓ No breaking errors
-✓ Demo mode functional (no APIs needed)
-✓ Production-ready code
-✓ Ready for blockchain deployment
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎉 PROJECT IS COMPLETE AND READY FOR SUBMISSION! 🎉
-
-Next: Record video → Push to GitHub → Submit
-
-Time Budget: 23 hours available, only 45 minutes work remaining!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Questions? Check the README.md for quick start guide!
-
-Good luck with final submission! 🚀
+See README.md for full documentation.
