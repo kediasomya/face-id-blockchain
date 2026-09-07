@@ -204,6 +204,70 @@ class BlockchainVerifier:
             logger.error(f"Failed to record verification: {str(e)}")
             return {"status": "failed", "error": str(e)}
 
+    def face_exists(self, face_hash: str) -> bool:
+        """Free read call: does this face hash exist in the on-chain registry?"""
+        if not self.contract:
+            logger.error("Contract not loaded")
+            return False
+        try:
+            return self.contract.functions.verifyFaceExists(
+                self._face_hash_to_bytes32(face_hash)
+            ).call()
+        except Exception as e:
+            logger.error(f"face_exists check failed: {str(e)}")
+            return False
+
+    def find_record_by_hash(self, face_hash: str) -> Optional[Dict]:
+        """
+        Scan the registry for a record whose faceHash matches, and return its
+        stored data. Read-only (no gas). Returns None if not found.
+        """
+        if not self.contract:
+            logger.error("Contract not loaded")
+            return None
+        try:
+            target = self._face_hash_to_bytes32(face_hash)
+            count = self.contract.functions.getRecordCount().call()
+            for i in range(count):
+                rid = self.contract.functions.getRecordIdAt(i).call()
+                rec = self.contract.functions.getRecord(rid).call()
+                if bytes(rec[0]) == target:
+                    return self._format_record(rid, rec)
+            return None
+        except Exception as e:
+            logger.error(f"find_record_by_hash failed: {str(e)}")
+            return None
+
+    def get_record(self, record_id: str) -> Optional[Dict]:
+        """Read a single record back from the chain by its record id (hex)."""
+        if not self.contract:
+            logger.error("Contract not loaded")
+            return None
+        try:
+            clean = record_id[2:] if record_id.startswith("0x") else record_id
+            rid = bytes.fromhex(clean)
+            rec = self.contract.functions.getRecord(rid).call()
+            # An empty/absent record has a zero faceHash
+            if bytes(rec[0]) == b"\x00" * 32:
+                return None
+            return self._format_record(rid, rec)
+        except Exception as e:
+            logger.error(f"get_record failed: {str(e)}")
+            return None
+
+    def _format_record(self, rid: bytes, rec) -> Dict:
+        """Turn a raw contract FaceRecord tuple into a readable dict."""
+        rid_hex = rid.hex()
+        return {
+            "record_id": rid_hex if rid_hex.startswith("0x") else "0x" + rid_hex,
+            "face_hash": rec[0].hex(),
+            "image_url": rec[1],
+            "social_post_url": rec[2],
+            "timestamp": rec[3],
+            "recorded_by": rec[4],
+            "metadata": rec[5],
+        }
+
     def get_gas_price(self) -> int:
         """Get current gas price in wei."""
         return self.w3.eth.gas_price

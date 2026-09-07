@@ -64,8 +64,10 @@ def load_env_vars() -> Dict[str, str]:
         env_vars = {
             "ETHEREUM_RPC_URL": os.getenv("ETHEREUM_RPC_URL"),
             "ETHEREUM_PRIVATE_KEY": os.getenv("ETHEREUM_PRIVATE_KEY"),
-            "BING_SEARCH_KEY": os.getenv("BING_SEARCH_KEY"),
             "CONTRACT_ADDRESS": os.getenv("CONTRACT_ADDRESS"),
+            "ETHEREUM_NETWORK": os.getenv("ETHEREUM_NETWORK", "sepolia"),
+            "SERPAPI_KEY": os.getenv("SERPAPI_KEY"),
+            "PEXELS_API_KEY": os.getenv("PEXELS_API_KEY"),
             "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
         }
         

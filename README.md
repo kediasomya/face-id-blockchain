@@ -7,7 +7,7 @@ A sophisticated pipeline that detects faces from photos, finds real matching soc
 ✅ **Face Detection & Encoding** - Detects face-like regions in images and generates a 512-dimensional feature vector (OpenCV) hashed with SHA256  
 ✅ **Blockchain Verification** - Records face verification data on the **Ethereum Sepolia testnet** as tamper-evident, on-chain records (fully working)  
 ✅ **End-to-End Pipeline** - Orchestrated CLI tool for complete face-to-blockchain verification  
-✅ **Image Search (demo)** - Reverse-image-search step runs with mock data; see [Known Limitations](#-known-limitations)  
+✅ **Genuine Reverse Image Search** - Uploads the input image to a temp host and runs a **real** Google reverse-image search (SerpApi) to find a matching web/social post  
 ✅ **Demo Mode** - Face detection + image search run without any API keys  
 
 ### ✅ Live deployment (Sepolia testnet)
@@ -21,7 +21,7 @@ A sophisticated pipeline that detects faces from photos, finds real matching soc
 ## 🔧 Tech Stack
 
 - **Face Processing:** OpenCV (edge detection, multi-scale histogram encoding)
-- **Image Search:** Pexels API integration (runs with mock data in demo mode)
+- **Reverse Image Search:** SerpApi (Google reverse image / Lens) + temp image host (catbox.moe / 0x0.st)
 - **Blockchain:** Ethereum (Sepolia testnet), Web3.py, Solidity smart contract, py-solc-x
 - **Language:** Python 3.9+
 - **CLI:** Click framework
@@ -103,16 +103,38 @@ python contract/deploy.py
 ```
 
 Once deployed, running the pipeline writes a **real transaction** to your
-contract on Sepolia — even in `--demo` mode (only the image-search step is mocked).
+contract on Sepolia. (`--demo` is an offline fallback that skips the genuine search;
+don't use it for the real end-to-end run.)
 
-### 5. Run Full Pipeline
+### 5. Run the Full Pipeline (genuine, end to end)
 
 ```bash
-python pipeline.py --image path/to/image.jpg --output output.json
+# face scan -> genuine reverse image search -> real match -> record on-chain
+python pipeline.py --image path/to/face.jpg --output output/result.json
 
-# Or with debug logging
-python pipeline.py --image path/to/image.jpg --debug
+# with debug logging
+python pipeline.py --image path/to/face.jpg --debug
 ```
+
+### 6. Re-verify against the on-chain record
+
+The tamper-evident half — prove the data matches what's stored on-chain:
+
+```bash
+# Read a record straight back from the chain
+python verify.py --record-id 0x<record_id>
+
+# Confirm the transaction was mined
+python verify.py --tx 0x<transaction_hash>
+
+# Re-hash a face image and check it against the registry
+python verify.py --image path/to/face.jpg
+#   -> ✅ MATCH (authentic, on-chain)   or   ❌ TAMPER DETECTED (edited/unregistered)
+```
+
+A **verification certificate** (`output/certificate.png`) with a QR code linking to
+the transaction is generated automatically after a successful on-chain record
+(requires `qrcode` + `Pillow`, both in `requirements.txt`).
 
 ## 📊 Pipeline Architecture
 
@@ -239,7 +261,7 @@ face-id-blockchain/
 │
 ├── src/
 │   ├── face_detector.py    # OpenCV face detection & encoding
-│   ├── image_search.py     # Pexels image search integration (demo/mock in pipeline)
+│   ├── image_search.py     # Genuine SerpApi reverse image search (+ temp upload)
 │   ├── blockchain.py       # Ethereum Web3 integration
 │   └── utils.py            # Utility functions
 │
@@ -271,9 +293,10 @@ face-id-blockchain/
 - Creates SHA256 hash for blockchain storage
 
 ### Step 2: Reverse Image Search
-- Uses the Pexels API to find candidate images (keyword-based, not true reverse search)
-- Extracts metadata (URL, source, confidence)
-- Returns best matching result (mocked in the pipeline's demo mode)
+- Uploads the input image to a temporary public host (catbox.moe / 0x0.st)
+- Runs a real Google reverse-image search via SerpApi (Google Lens engine)
+- Filters/ranks results, preferring genuine social-media domains
+- Returns the best real matching post (URL, source, title)
 
 ### Step 3: Blockchain Recording
 - Connects to Ethereum Sepolia testnet via Infura
@@ -291,11 +314,14 @@ face-id-blockchain/
 - **Note:** Uses edge detection; works on photos, drawings, and artistic renderings
 
 ### Image Search
-- **⚠️ Not true reverse-image search.** The current `image_search.py` does a Pexels
-  *keyword* search (using the filename) and returns stock photos — it does **not**
-  identify a person's real social-media post. In the pipeline it runs in demo/mock mode.
-- Making this genuine would require a reverse-image/face-search API (e.g. TinEye,
-  Google Vision) and a rewrite of the search module. This is the main remaining work item.
+- **Genuine search** via SerpApi's Google reverse-image (Lens) engine.
+- Requires the input image to be publicly reachable, so it is first uploaded to a
+  temporary host (catbox.moe, 0x0.st). These are anonymous public hosts — don't use
+  sensitive images.
+- **Coverage depends on what Google has indexed:** faces of public figures / widely
+  shared images return rich social matches; a brand-new private photo may return few
+  or no results. For the demo, use a face that exists online.
+- Free SerpApi tier is ~100 searches/month.
 
 ### Blockchain (working)
 - **Network:** Ethereum Sepolia testnet (Goerli is deprecated/dead)
@@ -395,6 +421,6 @@ Built for Hackathon Challenge: Face ID + Blockchain Verification
 
 ---
 
-**Status:** Blockchain recording live on Sepolia ✅ | Face detection working ✅ | Image search is demo/mock ⚠️
+**Status:** Genuine reverse image search ✅ | Face detection ✅ | On-chain recording live on Sepolia ✅ | Re-verification ✅
 
 **Questions?** Check troubleshooting section above or test with `--demo` mode first!

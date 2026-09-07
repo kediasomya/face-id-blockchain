@@ -27,17 +27,11 @@ class FaceIDPipeline:
         self.image_searcher = None
         self.blockchain = None
         
-        # Initialize modules if API keys available
-        # Try Pexels first, then Pixabay, then Bing
-        if env_vars.get("PEXELS_API_KEY") and env_vars.get("PEXELS_API_KEY") != "your_pexels_api_key_here":
-            self.image_searcher = ReverseImageSearcher(env_vars["PEXELS_API_KEY"])
-            logger.info("Using Pexels API for image search")
-        elif env_vars.get("PIXABAY_API_KEY") and env_vars.get("PIXABAY_API_KEY") != "your_pixabay_api_key_here":
-            self.image_searcher = ReverseImageSearcher(env_vars["PIXABAY_API_KEY"])
-            logger.info("Using Pixabay API for image search")
-        elif env_vars.get("BING_SEARCH_KEY") and env_vars.get("BING_SEARCH_KEY") != "your_bing_search_api_key_here":
-            self.image_searcher = ReverseImageSearcher(env_vars["BING_SEARCH_KEY"])
-            logger.info("Using Bing Search API for image search")
+        # Initialize genuine reverse-image search if a SerpApi key is configured.
+        serp_key = env_vars.get("SERPAPI_KEY")
+        if serp_key and serp_key != "your_serpapi_key_here":
+            self.image_searcher = ReverseImageSearcher(serp_key)
+            logger.info("Using SerpApi (Google reverse image search)")
         
         if env_vars.get("ETHEREUM_RPC_URL") and env_vars.get("ETHEREUM_PRIVATE_KEY"):
             if "test-key" not in env_vars.get("ETHEREUM_RPC_URL", "").lower():
@@ -87,33 +81,34 @@ class FaceIDPipeline:
             result["errors"].append(face_result.get("error", "Face detection failed"))
             return result
         
-        # Step 3: Reverse Image Search
-        logger.info("\n[STEP 2] Searching for matching social media posts...")
-        
-        if demo:
-            # Demo mode: use mock data
-            logger.info("  [DEMO MODE] Using mock social media post data")
+        # Step 3: Reverse Image Search (genuine whenever a searcher is configured)
+        logger.info("\n[STEP 2] Reverse image search for a matching web/social post...")
+
+        if self.image_searcher:
+            search_result = self.image_searcher.find_matching_post(image_path)
+            if not search_result:
+                result["errors"].append(
+                    "No matching web/social post found via reverse image search"
+                )
+                return result
+            logger.info(f"  Found real match: {search_result['host_url']}")
+        elif demo:
+            # Offline fallback ONLY — clearly labelled, not for final submission.
+            logger.warning("  [OFFLINE DEMO] No SERPAPI_KEY set - using placeholder data")
+            logger.warning("  Set SERPAPI_KEY in .env for a genuine search (required by the task)")
             search_result = {
                 "image_url": "https://example.com/demo-image.jpg",
                 "host_url": "https://twitter.com/demo_user/status/1234567890",
                 "is_social_media": True,
-                "similarity_score": 0.92
+                "similarity_score": 0.92,
+                "note": "OFFLINE PLACEHOLDER - not a real search result",
             }
-            logger.info(f"  [DEMO] Match: {search_result['host_url']}")
         else:
-            if not self.image_searcher:
-                result["errors"].append("Image search not configured. Use --demo for demonstration mode")
-                return result
-            
-            search_result = self.image_searcher.find_matching_post(image_path)
-            
-            if search_result:
-                result["steps"]["image_search"] = search_result
-                logger.info(f"Found match: {search_result['host_url']}")
-            else:
-                result["errors"].append("No matching social media post found")
-                return result
-        
+            result["errors"].append(
+                "Image search not configured. Set SERPAPI_KEY in .env (or use --demo offline)"
+            )
+            return result
+
         result["steps"]["image_search"] = search_result
         
         # Step 4: Blockchain Recording
@@ -156,6 +151,30 @@ class FaceIDPipeline:
             }
 
         result["steps"]["blockchain"] = blockchain_result
+
+        # Step 5: Generate a shareable verification certificate (best-effort)
+        if blockchain_result.get("record_id") and blockchain_result.get("status") == "success":
+            try:
+                from src.certificate import generate_certificate
+                cert_record = {
+                    "face_hash": face_result["encoding_hash"],
+                    "record_id": blockchain_result["record_id"],
+                    "recorded_by": self.blockchain.account.address if self.blockchain else "",
+                    "timestamp": blockchain_result.get("timestamp", ""),
+                    "network": blockchain_result.get("network", "Ethereum Sepolia"),
+                }
+                cert = generate_certificate(
+                    cert_record,
+                    explorer_url=blockchain_result.get("explorer_url", ""),
+                    face_image_path=image_path,
+                    output_path="output/certificate.png",
+                )
+                if cert:
+                    result["steps"]["certificate"] = cert
+                    logger.info(f"  Certificate: {cert}")
+            except Exception as e:
+                logger.warning(f"Certificate generation skipped: {e}")
+
         result["success"] = True
         
         logger.info("\n" + "=" * 60)
@@ -201,9 +220,10 @@ def main(image: str, output: str, demo: bool, debug: bool):
     # Load environment variables
     env_vars = load_env_vars()
     
-    if not demo and not env_vars.get("BING_SEARCH_KEY"):
-        click.secho("ERROR: BING_SEARCH_KEY not configured in .env", fg="red")
-        click.secho("TIP: Use --demo flag to run with mock data", fg="yellow")
+    if not demo and not env_vars.get("SERPAPI_KEY"):
+        click.secho("ERROR: SERPAPI_KEY not configured in .env", fg="red")
+        click.secho("Get a free key at https://serpapi.com", fg="yellow")
+        click.secho("TIP: Use --demo to run offline with placeholder search data", fg="yellow")
         return
     
     # Run pipeline
